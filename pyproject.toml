@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmrg_from_scratch"
+version = "0.1"
+authors = [{ name = "Joshua T. Cantin", email = "joshua.cantin@utoronto.ca" }]
+description = "DMRG Implementation for Pedagogical Reasons"
+readme = "README.md"
+requires-python = "==3.9.*"
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "License :: Other/Proprietary License",
+    "Operating System :: Other OS",
+    "Development Status :: 2 - Pre-Alpha",
+    "Natural Language :: English",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = ["numpy", "notebook"]
+
+[project.urls]
+"Github Prototype" = "TBD"
