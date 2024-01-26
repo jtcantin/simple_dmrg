@@ -1,1 +1,4 @@
 dmrg_env/*
+command_notes.txt
+src/dmrg_from_scratch.egg-info/*
+sandbox.ipynb
