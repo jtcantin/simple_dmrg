@@ -3,6 +3,8 @@ from typing import List
 import numpy as np
 import scipy.sparse.linalg
 
+eigenvalue_imaginary_threshold = 1e-13
+
 
 def drmg_main(
     mpo: List[np.ndarray],
@@ -62,25 +64,28 @@ def drmg_main(
         bra_tensor = np.conj(mps_ket[iiter + 1])
         R_tensor = R_tensor_list[0].copy()
 
-        # print("Iteration ", iiter)
-        # print("ket tensor shape: ", ket_tensor.shape)
-        # print("bra tensor shape: ", bra_tensor.shape)
-        # print("mpo tensor shape: ", mpo_tensor.shape)
-        # print("R tensor shape: ", R_tensor.shape)
+        if verbosity > 1:
+            print("Site ", iiter)
+            print("ket tensor shape: ", ket_tensor.shape)
+            print("bra tensor shape: ", bra_tensor.shape)
+            print("mpo tensor shape: ", mpo_tensor.shape)
+            print("R tensor shape: ", R_tensor.shape)
 
         # Contract ket tensor with R tensor
         # R_tensor: c (top) e (left) h (bottom)
         # ket_tensor: a (left) b (bottom) c (right)
         # R_ket_tensor: a (left) b (bottom left) e (bottom right) h (right)
         R_ket_tensor = np.einsum("ceh,abc->abeh", R_tensor, ket_tensor)
-        # print("R_ket_tensor shape: ", R_ket_tensor.shape)
+        if verbosity > 1:
+            print("R_ket_tensor shape: ", R_ket_tensor.shape)
 
         # Contract with mpo tensor
         # mpo_tensor: d (left) b (top) f (bottom) e (right)
         # R_ket_tensor: a (left) b (bottom left) e (bottom right) h (right)
         # R_ket_o_tensor: a (top) d (left) f (bottom left) h (bottom right)
         R_ket_o_tensor = np.einsum("abeh,dbfe->adfh", R_ket_tensor, mpo_tensor)
-        # print("R_ket_o_tensor shape: ", R_ket_o_tensor.shape)
+        if verbosity > 1:
+            print("R_ket_o_tensor shape: ", R_ket_o_tensor.shape)
 
         # Contract with bra tensor
         # R_ket_o_tensor: a (top) d (left) f (bottom left) h (bottom right)
@@ -88,7 +93,8 @@ def drmg_main(
         # R_tensor: a (top) d (left) g (bottom)
         R_tensor = np.einsum("adfh,gfh->adg", R_ket_o_tensor, bra_tensor)
 
-        # print("New R tensor shape: ", R_tensor.shape)
+        if verbosity > 1:
+            print("New R tensor shape: ", R_tensor.shape)
 
         # Prepend to R_tensor_list
         R_tensor_list = [R_tensor] + R_tensor_list
@@ -100,6 +106,7 @@ def drmg_main(
     ###############
     # Sweeps
     ###############
+    all_eigenvalues_real = True
     for isweep in range(num_sweeps):
         # Sweep left to right
         ###############
@@ -121,11 +128,13 @@ def drmg_main(
                 print("R_local_tensor shape: ", R_local_tensor.shape)
                 print("mpo_local_tensor shape: ", mpo_local_tensor.shape)
 
-            mps_new_tensor = get_new_ket_tensor(
+            mps_new_tensor, all_eigenvalues_real = get_new_ket_tensor(
                 L_local_tensor=L_local_tensor,
                 mpo_local_tensor=mpo_local_tensor,
                 R_local_tensor=R_local_tensor,
                 original_ket_tensor=mps_ket[isite],
+                verbosity=verbosity,
+                all_eigenvalues_real=all_eigenvalues_real,
             )
 
             # Update mps_ket[isite]
@@ -208,11 +217,13 @@ def drmg_main(
                 print("R_local_tensor shape: ", R_local_tensor.shape)
                 print("mpo_local_tensor shape: ", mpo_local_tensor.shape)
 
-            mps_new_tensor = get_new_ket_tensor(
+            mps_new_tensor, all_eigenvalues_real = get_new_ket_tensor(
                 L_local_tensor=L_local_tensor,
                 mpo_local_tensor=mpo_local_tensor,
                 R_local_tensor=R_local_tensor,
                 original_ket_tensor=mps_ket[isite],
+                verbosity=verbosity,
+                all_eigenvalues_real=all_eigenvalues_real,
             )
 
             # Update mps_ket[isite]
@@ -274,6 +285,12 @@ def drmg_main(
         print("---------------------")
         print("Sweeps complete.")
         # print("Final MPS shape:",)
+        print("ALL EIGENVALUES REAL: ", all_eigenvalues_real)
+
+    if not all_eigenvalues_real:
+        print(
+            f"WARNING: Not all eigenvalues of the effective matrix were real, with an absolute threshold of {eigenvalue_imaginary_threshold}. This may indicate a problem."
+        )
 
     return mps_ket
 
@@ -284,6 +301,7 @@ def get_new_ket_tensor(
     R_local_tensor: np.ndarray,
     original_ket_tensor: np.ndarray,
     verbosity: int = 0,
+    all_eigenvalues_real: bool = True,
 ) -> np.ndarray:
     """Calculates the new ket tensor by diagonalizing the effective matrix
     See Appendix B and Fig.15 of https://doi.org/10.1140/epjb/s10051-023-00575-2
@@ -295,10 +313,12 @@ def get_new_ket_tensor(
     effective_matrix = np.einsum(
         "acb,cdef,gfh->adgbeh", L_local_tensor, mpo_local_tensor, R_local_tensor
     )
+
     effective_matrix_orig_shape = effective_matrix.shape
     if verbosity > 1:
         print("Effective matrix shape: ", effective_matrix.shape)
 
+    # print(effective_matrix)
     # Fuse indices
     # M_a_d_g_b_e_h = M_adg_beh = M_ij
     effective_matrix = np.reshape(
@@ -317,6 +337,15 @@ def get_new_ket_tensor(
     if verbosity > 1:
         print("Calculated effective matrix.")
         print("Effective matrix shape: ", effective_matrix.shape)
+        # Check that the effective matrix is Hermitian
+        print(
+            "Effective matrix Hermitian: ",
+            np.allclose(effective_matrix, effective_matrix.conj().T),
+        )
+        print(
+            "Max abs difference: ",
+            np.max(np.abs(effective_matrix - effective_matrix.conj().T)),
+        )
 
     # Get initial guess for eigenvector
     # eigenvector: i <- a (left) d (bottom) g (right)
@@ -335,7 +364,7 @@ def get_new_ket_tensor(
         k=1,  # Number of eigenvalues and eigenvectors to compute
         M=None,
         sigma=None,
-        which="SM",  # Smallest magnitude
+        which="SR",  # Smallest real part
         v0=eigenvector_guess,
         ncv=None,
         maxiter=None,
@@ -353,6 +382,10 @@ def get_new_ket_tensor(
         print("Eigenvector shape: ", eigenvector.shape)
         print("Eigenvector: ", eigenvector)
 
+    # Check that the eigenvalue is real
+    if all_eigenvalues_real:
+        all_eigenvalues_real = np.abs(eigenvalue.imag) <= eigenvalue_imaginary_threshold
+
     # Reshape eigenvector
     # eigenvector: i -> a (left) d (bottom) g (right)
     mps_new_tensor = np.reshape(
@@ -369,7 +402,7 @@ def get_new_ket_tensor(
         print("New MPS tensor shape: ", mps_new_tensor.shape)
         # print("New MPS tensor: ", mps_new_tensor)
 
-    return mps_new_tensor
+    return mps_new_tensor, all_eigenvalues_real
 
 
 def build_random_mps(
@@ -526,9 +559,20 @@ def build_random_mpo(
     physical_dimension: int = 2,
     bond_dimension: int = 3,
     seed: int = 0,
+    # hermitian: bool = True,
 ) -> List[np.ndarray]:
     """Builds a random MPO with bond dimension bond_dimension
     Dimensions abcd are left (bond), top (physical), bottom (physical), right (bond)"""
+
+    # Make Hermitian matrix
+    matrix_dimension = num_sites**physical_dimension
+    rng = np.random.default_rng(seed)
+    matrix = rng.uniform(low=-1, high=1, size=(matrix_dimension, matrix_dimension))
+    matrix = (matrix + matrix.T.conj()) / 2
+
+    # Convert to MPO
+
+    raise NotImplementedError("This does not produce a Hermitian MPO.")
 
     rng = np.random.default_rng(seed)
     mpo = []
@@ -577,6 +621,12 @@ def build_random_mpo(
     # print(mps_inner_product(mps, mps))
 
     # assert np.allclose(mps_inner_product(mps, mps), 1.0)
+
+    # if hermitian:
+    #     # Make MPO Hermitian
+    #     # Fuse indices to a matrix
+    #     # Make Hermitian by adding conjugate transpose
+    #     # Split indices
     return mpo
 
 
