@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 
 
@@ -54,3 +56,170 @@ def mpo_general_expectation(mps_bra, mpo, mps_ket):
 
     assert contraction_tensor.shape == (1, 1, 1)
     return contraction_tensor[0, 0, 0]
+
+
+def add_mpos(mpo1: List[np.ndarray], mpo2: List[np.ndarray]) -> List[np.ndarray]:
+    """Add two MPOs. This follows IVB of https://link.aps.org/doi/10.1103/PhysRevB.95.035129"""
+    mpo1_physical_dims = mpo1[0].shape[1]
+    mpo2_physical_dims = mpo2[0].shape[1]
+    assert mpo1_physical_dims == mpo2_physical_dims, "Physical dimensions must match"
+
+    new_mpo = []
+
+    R1_shape = (
+        1,
+        mpo1_physical_dims,
+        mpo1_physical_dims,
+        mpo1[0].shape[-1] + mpo2[0].shape[-1],
+    )
+
+    R1 = np.zeros(R1_shape)
+    R1[:, :, :, : mpo1[0].shape[-1]] = mpo1[0]
+    R1[:, :, :, mpo1[0].shape[-1] :] = mpo2[0]
+    new_mpo.append(R1)
+
+    for isite in range(1, len(mpo1) - 1):
+        R_i_shape = (
+            mpo1[isite].shape[0] + mpo2[isite].shape[0],
+            mpo1_physical_dims,
+            mpo1_physical_dims,
+            mpo1[isite].shape[-1] + mpo2[isite].shape[-1],
+        )
+        R_i = np.zeros(R_i_shape)
+        R_i[: mpo1[isite].shape[0], :, :, : mpo1[isite].shape[-1]] = mpo1[isite]
+        R_i[mpo1[isite].shape[0] :, :, :, mpo1[isite].shape[-1] :] = mpo2[isite]
+        new_mpo.append(R_i)
+
+    R_end_shape = (
+        mpo1[-1].shape[0] + mpo2[-1].shape[0],
+        mpo1_physical_dims,
+        mpo1_physical_dims,
+        1,
+    )
+    R_end = np.zeros(R_end_shape)
+    R_end[: mpo1[-1].shape[0], :, :, :] = mpo1[-1]
+    R_end[mpo1[-1].shape[0] :, :, :, :] = mpo2[-1]
+    new_mpo.append(R_end)
+
+    return new_mpo
+
+
+def multiply_mpos(mpo1: List[np.ndarray], mpo2: List[np.ndarray]) -> List[np.ndarray]:
+    """Multiply two MPOs. This follows IVA and Fig. 5 of https://link.aps.org/doi/10.1103/PhysRevB.95.035129
+    Order is mp1 * mpo2, so mpo2 is on the top and mpo1 is on the bottom."""
+    mpo1_physical_dims = mpo1[0].shape[1]
+    mpo2_physical_dims = mpo2[0].shape[1]
+    assert mpo1_physical_dims == mpo2_physical_dims, "Physical dimensions must match"
+
+    new_mpo = []
+    for isite in range(len(mpo1)):
+        # Contract over the matching physical indices.
+        # Ket is on the top, bra is on the bottom, so mpo2 is on the top.
+        # mpo2[isite] : abcd: a (left,bond_dim) b (top,physical_dim,ket) c (bottom,physical_dim,bra) d (right,bond_dim)
+        # mpo1[isite] : ecfg: e (left,bond_dim) c (top,physical_dim,ket) f (bottom,physical_dim,bra) g (right,bond_dim)
+        # R_i : aebfdg: a (left top,bond_dim_2) e(left bottom,bond_dim_1) b (top,physical_dim,ket) f (bottom,physical_dim,bra) d (right top, bond_dim_2) g (right bottom, bond_dim_1)
+        R_i = np.einsum(
+            "abcd,ecfg->aebfdg",
+            mpo2[isite],
+            mpo1[isite],
+        )
+
+        # Merge d and g indices.
+        # aebfdg -> aebfk
+        R_i = np.reshape(
+            R_i,
+            (
+                R_i.shape[0],
+                R_i.shape[1],
+                R_i.shape[2],
+                R_i.shape[3],
+                R_i.shape[4] * R_i.shape[5],
+            ),
+            order="C",
+        )
+
+        # Rotate out a and e indices.
+        # aebfk -> bfkae
+        R_i = np.transpose(R_i, (2, 3, 4, 0, 1))
+
+        # Merge a and e indices.
+        # bfkae -> bfkl
+        R_i = np.reshape(
+            R_i,
+            (
+                R_i.shape[0],
+                R_i.shape[1],
+                R_i.shape[2],
+                R_i.shape[3] * R_i.shape[4],
+            ),
+            order="C",
+        )
+
+        # Rotate back to the original order.
+        # bfkl -> lbfk
+        R_i = np.transpose(R_i, (3, 0, 1, 2))
+
+        # Now, lbfk : l (left,bond_dim_1*bond_dim_2) b (top,physical_dim,ket) f (bottom,physical_dim,bra) k (right,bond_dim_1*bond_dim_2)
+
+        new_mpo.append(R_i)
+
+    return new_mpo
+
+
+def mpo_mult_by_scalar(
+    mpo: List[np.ndarray], scalar: complex, deposit_site: int = None
+) -> List[np.ndarray]:
+    """Multiply an MPO by a scalar. If deposit_site is None, distribute the scalar evenly across all sites
+    by taking the Nth root, where N is the number of sites.
+    Otherwise, deposit the scalar on the given site."""
+    new_mpo = []
+    if deposit_site is None:
+        scalar_per_site = scalar ** (1 / len(mpo))
+        for isite in range(len(mpo)):
+            new_mpo.append(mpo[isite] * scalar_per_site)
+
+    else:
+        for isite in range(len(mpo)):
+            if isite == deposit_site:
+                new_mpo.append(mpo[isite] * scalar)
+            else:
+                new_mpo.append(mpo[isite])
+
+    return new_mpo
+
+
+def mpo_to_dense_matrix(mpo: List[np.ndarray]):
+    num_sites = len(mpo)
+    # Contract the mpo tensors.
+    for isite, tensor in enumerate(mpo):
+        # print("isite", isite)
+        # print("tensor.shape", tensor.shape)
+
+        if isite == 0:
+            final_tensor = tensor
+        else:
+            final_tensor = np.einsum("...a,abcd->...bcd", final_tensor, tensor)
+        # print("final_tensor.shape", final_tensor.shape)
+    # print("final_tensor.shape", final_tensor.shape)
+    # Remove the dummy dimensions.
+    final_tensor = np.squeeze(final_tensor)
+    # print("final_tensor.shape", final_tensor.shape)
+
+    # Rearrange the indices from ket,bra,ket,bra,... to ket,ket,...,bra,bra,...
+    final_tensor = np.transpose(
+        final_tensor,
+        list(range(0, num_sites * 2, 2)) + list(range(1, num_sites * 2, 2)),
+    )
+    # print("final_tensor.shape", final_tensor.shape)
+
+    # Reshape the rank-2N tensor to a matrix.
+    final_matrix = np.reshape(
+        final_tensor,
+        (2**num_sites, 2**num_sites),
+        order="C",
+    )
+    # Transpose the matrix to match the convention of the sparse matrix.
+    final_matrix = np.transpose(final_matrix)
+    # print("final_tensor.shape", final_tensor.shape)
+
+    return final_matrix

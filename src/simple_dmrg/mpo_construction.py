@@ -2,7 +2,7 @@ from typing import List
 
 import numpy as np
 
-from simple_dmrg.mps_functions import add_mpos, mpo_mult_by_scalar, multiply_mpos
+from simple_dmrg.mpo_operations import add_mpos, mpo_mult_by_scalar, multiply_mpos
 
 
 def build_random_mpo(

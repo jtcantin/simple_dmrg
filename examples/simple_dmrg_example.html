@@ -7513,7 +7513,9 @@ a.anchor-link {
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Imports</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">simple_dmrg.dmrg_functions</span> <span class="k">as</span> <span class="nn">dmrg</span>
-<span class="kn">import</span> <span class="nn">simple_dmrg.mps_mpo_functions</span> <span class="k">as</span> <span class="nn">mps_mpo</span>
+<span class="kn">import</span> <span class="nn">simple_dmrg.mps_functions</span> <span class="k">as</span> <span class="nn">mps_mpo</span>
+<span class="kn">import</span> <span class="nn">simple_dmrg.mpo_operations</span> <span class="k">as</span> <span class="nn">mpo_ops</span>
+<span class="kn">import</span> <span class="nn">simple_dmrg.mpo_construction</span> <span class="k">as</span> <span class="nn">make_mpo</span>
 </pre></div>
 </div>
 </div>
@@ -7528,7 +7530,7 @@ a.anchor-link {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Implement the Hamiltonian as a matrix product operator</span>
-<span class="c1"># The Hamiltonian is H = ∑_ij h_ij c_i^† c_j, where c_i^† is the fermionic creation operator for site i,</span>
+<span class="c1"># The Hamiltonian is simple_dmrg.mpo_constructionwhere c_i^† is the fermionic creation operator for site i,</span>
 <span class="c1"># and h_ij is the one-body tensor element between sites i and j.</span>
 
 <span class="c1"># Parameters</span>
@@ -7541,7 +7543,7 @@ a.anchor-link {
 <span class="n">one_body_tensor</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">3</span>
 <span class="n">one_body_tensor</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
 <span class="n">one_body_tensor</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
-<span class="n">one_body_mpo</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">make_one_body_mpo</span><span class="p">(</span><span class="n">one_body_tensor</span><span class="o">=</span><span class="n">one_body_tensor</span><span class="p">,</span> <span class="n">num_sites</span><span class="o">=</span><span class="n">one_body_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">one_body_mpo</span> <span class="o">=</span> <span class="n">make_mpo</span><span class="o">.</span><span class="n">make_one_body_mpo</span><span class="p">(</span><span class="n">one_body_tensor</span><span class="o">=</span><span class="n">one_body_tensor</span><span class="p">,</span> <span class="n">num_sites</span><span class="o">=</span><span class="n">one_body_tensor</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 </pre></div>
 </div>
 </div>
@@ -7555,38 +7557,40 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Add a penalty term to the Hamiltonian to enforce the constraint that the number of particles is fixed</span>
-<span class="c1"># Penalty term is H_penalty = μ  (N_e - ∑_i n_i)^2, where n_i is the number operator for site i,</span>
-<span class="c1"># N_e is the number of electrons, and μ &gt; 0 is the penalty.</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># N_e is the number of electrons, and μ &gt; 0 is the penalty.</span>
+
+<span class="kn">import</span> <span class="nn">simple_dmrg.mpo_construction</span>
+<span class="kn">import</span> <span class="nn">simple_dmrg.mpo_operations</span>
+
 
 <span class="n">penalty</span> <span class="o">=</span> <span class="mi">1000</span> <span class="c1"># μ </span>
 <span class="n">num_particles</span> <span class="o">=</span> <span class="mi">3</span> <span class="c1"># N_e</span>
 
 <span class="c1"># Add a number penalty term to the Hamiltonian</span>
 <span class="c1"># ∑_i n_i</span>
-<span class="n">particle_number_mpo</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">make_particle_number_mpo</span><span class="p">(</span><span class="n">num_sites</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span> 
+<span class="n">particle_number_mpo</span> <span class="o">=</span> <span class="n">simple_dmrg</span><span class="o">.</span><span class="n">mpo_construction</span><span class="o">.</span><span class="n">make_particle_number_mpo</span><span class="p">(</span><span class="n">num_sites</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span> 
 
 <span class="c1"># -∑_i n_i</span>
-<span class="n">negative_part_num_mpo</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">mpo_mult_by_scalar</span><span class="p">(</span>
+<span class="n">negative_part_num_mpo</span> <span class="o">=</span> <span class="n">simple_dmrg</span><span class="o">.</span><span class="n">mpo_operations</span><span class="o">.</span><span class="n">mpo_mult_by_scalar</span><span class="p">(</span>
     <span class="n">mpo</span><span class="o">=</span><span class="n">particle_number_mpo</span><span class="p">,</span> <span class="n">scalar</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">deposit_site</span><span class="o">=</span><span class="mi">0</span>
 <span class="p">)</span>
 <span class="c1"># Identity operator</span>
-<span class="n">identity_mpo</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">make_identity_mpo</span><span class="p">(</span><span class="n">num_sites</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">num_physical_dims</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">identity_mpo</span> <span class="o">=</span> <span class="n">simple_dmrg</span><span class="o">.</span><span class="n">mpo_construction</span><span class="o">.</span><span class="n">make_identity_mpo</span><span class="p">(</span><span class="n">num_sites</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">num_physical_dims</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
 <span class="c1">#N_e</span>
-<span class="n">const_identity_mpo</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">mpo_mult_by_scalar</span><span class="p">(</span>
+<span class="n">const_identity_mpo</span> <span class="o">=</span> <span class="n">simple_dmrg</span><span class="o">.</span><span class="n">mpo_operations</span><span class="o">.</span><span class="n">mpo_mult_by_scalar</span><span class="p">(</span>
     <span class="n">mpo</span><span class="o">=</span><span class="n">identity_mpo</span><span class="p">,</span> <span class="n">scalar</span><span class="o">=</span><span class="n">num_particles</span><span class="p">,</span> <span class="n">deposit_site</span><span class="o">=</span><span class="mi">0</span>
 <span class="p">)</span>
 
 <span class="c1">#N_e - ∑_i n_i</span>
-<span class="n">id_min_part_num_mpo</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">add_mpos</span><span class="p">(</span><span class="n">mpo1</span><span class="o">=</span><span class="n">const_identity_mpo</span><span class="p">,</span> <span class="n">mpo2</span><span class="o">=</span><span class="n">negative_part_num_mpo</span><span class="p">)</span>
+<span class="n">id_min_part_num_mpo</span> <span class="o">=</span> <span class="n">simple_dmrg</span><span class="o">.</span><span class="n">mpo_operations</span><span class="o">.</span><span class="n">add_mpos</span><span class="p">(</span><span class="n">mpo1</span><span class="o">=</span><span class="n">const_identity_mpo</span><span class="p">,</span> <span class="n">mpo2</span><span class="o">=</span><span class="n">negative_part_num_mpo</span><span class="p">)</span>
 <span class="n">id_min_part_num_mpo_copy</span>  <span class="o">=</span> <span class="n">id_min_part_num_mpo</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
 <span class="c1"># (N_e - ∑_i n_i)^2</span>
-<span class="n">id_min_part_num_sq_mpo</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">multiply_mpos</span><span class="p">(</span><span class="n">mpo1</span><span class="o">=</span><span class="n">id_min_part_num_mpo</span><span class="p">,</span> <span class="n">mpo2</span><span class="o">=</span><span class="n">id_min_part_num_mpo_copy</span><span class="p">)</span>
+<span class="n">id_min_part_num_sq_mpo</span> <span class="o">=</span> <span class="n">simple_dmrg</span><span class="o">.</span><span class="n">mpo_operations</span><span class="o">.</span><span class="n">multiply_mpos</span><span class="p">(</span><span class="n">mpo1</span><span class="o">=</span><span class="n">id_min_part_num_mpo</span><span class="p">,</span> <span class="n">mpo2</span><span class="o">=</span><span class="n">id_min_part_num_mpo_copy</span><span class="p">)</span>
 
 <span class="c1"># μ  (N_e - ∑_i n_i)^2</span>
-<span class="n">id_min_part_num_sq_mpo</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">mpo_mult_by_scalar</span><span class="p">(</span>
+<span class="n">id_min_part_num_sq_mpo</span> <span class="o">=</span> <span class="n">simple_dmrg</span><span class="o">.</span><span class="n">mpo_operations</span><span class="o">.</span><span class="n">mpo_mult_by_scalar</span><span class="p">(</span>
     <span class="n">mpo</span><span class="o">=</span><span class="n">id_min_part_num_sq_mpo</span><span class="p">,</span> <span class="n">scalar</span><span class="o">=</span><span class="n">penalty</span><span class="p">,</span> <span class="n">deposit_site</span><span class="o">=</span><span class="kc">None</span>
 <span class="p">)</span>
 </pre></div>
@@ -7603,7 +7607,7 @@ a.anchor-link {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Add the penalty term to the Hamiltonian</span>
-<span class="n">one_body_mpo_with_penalty</span> <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">add_mpos</span><span class="p">(</span><span class="n">mpo1</span><span class="o">=</span><span class="n">one_body_mpo</span><span class="p">,</span> <span class="n">mpo2</span><span class="o">=</span><span class="n">id_min_part_num_sq_mpo</span><span class="p">)</span>
+<span class="n">one_body_mpo_with_penalty</span> <span class="o">=</span> <span class="n">mpo_ops</span><span class="o">.</span><span class="n">add_mpos</span><span class="p">(</span><span class="n">mpo1</span><span class="o">=</span><span class="n">one_body_mpo</span><span class="p">,</span> <span class="n">mpo2</span><span class="o">=</span><span class="n">id_min_part_num_sq_mpo</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -7620,7 +7624,7 @@ a.anchor-link {
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Check that the Hamiltonian is Hermitian</span>
 
 <span class="c1"># Convert the Hamiltonian MPO to a dense matrix</span>
-<span class="n">hamiltonian_matrix</span>  <span class="o">=</span> <span class="n">mps_mpo</span><span class="o">.</span><span class="n">mpo_to_dense_matrix</span><span class="p">(</span><span class="n">mpo</span><span class="o">=</span><span class="n">one_body_mpo_with_penalty</span><span class="p">)</span>
+<span class="n">hamiltonian_matrix</span>  <span class="o">=</span> <span class="n">mpo_ops</span><span class="o">.</span><span class="n">mpo_to_dense_matrix</span><span class="p">(</span><span class="n">mpo</span><span class="o">=</span><span class="n">one_body_mpo_with_penalty</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">"hamiltonian_matrix is Hermitian:"</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">hamiltonian_matrix</span><span class="p">,</span> <span class="n">hamiltonian_matrix</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">()))</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">"Max absolute difference between hamiltonian_matrix and hamiltonian_matrix.T.conj():"</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hamiltonian_matrix</span> <span class="o">-</span> <span class="n">hamiltonian_matrix</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">conj</span><span class="p">())))</span>
@@ -7714,6 +7718,11 @@ Sweep  2 , right-to-left , site  0
 ---------------------
 Sweeps complete.
 ALL EIGENVALUES REAL:  True
+Sweep  2 , right-to-left , site  1
+Sweep  2 , right-to-left , site  0
+---------------------
+Sweeps complete.
+ALL EIGENVALUES REAL:  True
 </pre>
 </div>
 </div>
@@ -7727,10 +7736,9 @@ ALL EIGENVALUES REAL:  True
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Calculate the energy of the optimized state</span>
-<span class="c1"># For 3 particles, the ground state energy is -3.0</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Calculate the energy of the optimisimple_dmrg.mpo_operationss, the ground state energy is -3.0</span>
 
-<span class="n">gs_energy</span> <span class="o">=</span> <span class="n">dmrg</span><span class="o">.</span><span class="n">mpo_general_expectation</span><span class="p">(</span><span class="n">mps_bra</span><span class="o">=</span><span class="n">optimized_mps</span><span class="p">,</span><span class="n">mpo</span><span class="o">=</span><span class="n">one_body_mpo_with_penalty</span><span class="p">,</span><span class="n">mps_ket</span><span class="o">=</span><span class="n">optimized_mps</span><span class="p">)</span>
+<span class="n">gs_energy</span> <span class="o">=</span> <span class="n">mpo_ops</span><span class="o">.</span><span class="n">mpo_general_expectation</span><span class="p">(</span><span class="n">mps_bra</span><span class="o">=</span><span class="n">optimized_mps</span><span class="p">,</span><span class="n">mpo</span><span class="o">=</span><span class="n">one_body_mpo_with_penalty</span><span class="p">,</span><span class="n">mps_ket</span><span class="o">=</span><span class="n">optimized_mps</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">"Ground state energy:"</span><span class="p">,</span><span class="n">gs_energy</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -7758,10 +7766,9 @@ ALL EIGENVALUES REAL:  True
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Calculate the particle number of the optimized state</span>
-<span class="c1"># It should be 3</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Calculate the particle number of tsimple_dmrg.mpo_operationsould be 3</span>
 
-<span class="n">gs_num_particles</span> <span class="o">=</span> <span class="n">dmrg</span><span class="o">.</span><span class="n">mpo_general_expectation</span><span class="p">(</span><span class="n">mps_bra</span><span class="o">=</span><span class="n">optimized_mps</span><span class="p">,</span><span class="n">mpo</span><span class="o">=</span><span class="n">particle_number_mpo</span><span class="p">,</span><span class="n">mps_ket</span><span class="o">=</span><span class="n">optimized_mps</span><span class="p">)</span>
+<span class="n">gs_num_particles</span> <span class="o">=</span> <span class="n">mpo_ops</span><span class="o">.</span><span class="n">mpo_general_expectation</span><span class="p">(</span><span class="n">mps_bra</span><span class="o">=</span><span class="n">optimized_mps</span><span class="p">,</span><span class="n">mpo</span><span class="o">=</span><span class="n">particle_number_mpo</span><span class="p">,</span><span class="n">mps_ket</span><span class="o">=</span><span class="n">optimized_mps</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">"Ground state particle number:"</span><span class="p">,</span><span class="n">gs_num_particles</span><span class="p">)</span>
 </pre></div>
 </div>
