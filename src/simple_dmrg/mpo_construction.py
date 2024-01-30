@@ -408,12 +408,15 @@ def make_particle_number_mpo(num_sites: int) -> List[np.ndarray]:
     return number_op
 
 
-def make_one_body_mpo(one_body_tensor: np.ndarray, num_sites: int) -> List[np.ndarray]:
+def make_one_body_mpo(
+    one_body_tensor: np.ndarray, num_sites: int, element_threshold: float = 1e-12
+) -> List[np.ndarray]:
     """Return the MPO for a generic spinless fermion one-body operator.
     The one-body tensor should be of the form
     <bra|operator|ket> where bra and ket are vectors of the form
     (n_0,n_1,...,n_N-1,n_N) where n_i runs over the physical dimensions of site i,
     N is the number of sites, n_0 is the leftmost index, n_N runs the fastest (i.e. C's row-major order).
+    Any element whose absolute value is less than element_threshold is ignored.
     """
     assert one_body_tensor.shape == (num_sites, num_sites)
     for isite in range(num_sites):
@@ -421,7 +424,12 @@ def make_one_body_mpo(one_body_tensor: np.ndarray, num_sites: int) -> List[np.nd
         for jsite in range(num_sites):
             c_j = make_fermion_operator_mpo(jsite, num_sites, op_type="annihilation")
             bare_op = multiply_mpos(c_dagger_i, c_j)
+
             # Put the one-body tensor element on the creation site.
+            value = one_body_tensor[isite, jsite]
+            if np.abs(value) < element_threshold:
+                continue
+
             scalar_and_op = mpo_mult_by_scalar(
                 bare_op, one_body_tensor[isite, jsite], deposit_site=isite
             )
@@ -433,10 +441,13 @@ def make_one_body_mpo(one_body_tensor: np.ndarray, num_sites: int) -> List[np.nd
     return one_body_mpo
 
 
-def make_two_body_mpo(two_body_tensor: np.ndarray, num_sites: int) -> List[np.ndarray]:
+def make_two_body_mpo(
+    two_body_tensor: np.ndarray, num_sites: int, element_threshold: float = 1e-12
+) -> List[np.ndarray]:
     """Return the MPO for a generic spinless fermion two-body operator, aka spin-orbital basis.
     The two-body tensor should be of the form g_pqrs where pqrs run over the site indices.
     This is for the term H_two-body = ∑_pqrs g_pqrs c†_p c_q c†_r c_s .
+    Any element whose absolute value is less than element_threshold is ignored.
     """
     assert two_body_tensor.shape == (num_sites, num_sites, num_sites, num_sites)
     for psite in range(num_sites):
@@ -471,6 +482,10 @@ def make_two_body_mpo(two_body_tensor: np.ndarray, num_sites: int) -> List[np.nd
                     bare_op_pqrs = multiply_mpos(bare_op_pqr, c_s)
 
                     # Put the two-body tensor element on the p site.
+                    value = two_body_tensor[psite, qsite, rsite, ssite]
+                    if np.abs(value) < element_threshold:
+                        continue
+
                     scalar_and_op = mpo_mult_by_scalar(
                         bare_op_pqrs,
                         two_body_tensor[psite, qsite, rsite, ssite],
@@ -539,3 +554,58 @@ def make_number_penalty_mpo(
     )
 
     return id_min_part_num_sq_mpo
+
+
+def make_electronic_hamiltonian_simple_number_enforcement(
+    num_sites: int,
+    num_physical_dims: int,
+    one_body_tensor: np.ndarray = None,
+    two_body_tensor: np.ndarray = None,
+    num_electrons: int = None,
+    number_penalty: float = 1000,
+) -> List[np.ndarray]:
+    """Construct the molecular electron Hamiltonian as an MPO.
+    The Hamiltonian is H = H_one-body + H_two-body + H_penalty
+    H_one-body = ∑_pq h_pq c†_p c_q
+    H_two-body = ∑_pqrs g_pqrs c†_p c_q c†_r c_s
+    H_penalty = μ (N_e - ∑_i n_i)^2, where n_i is the number operator for site i,
+    N_e is num_electrons, and μ > 0 is the number_penalty.
+    If num_electrons is None, then the penalty term is not included and the number of electrons is not fixed.
+    At least one of one_body_tensor and two_body_tensor must be provided.
+    """
+
+    assert one_body_tensor is not None or two_body_tensor is not None
+
+    if one_body_tensor is not None:
+        one_body_mpo = make_one_body_mpo(
+            one_body_tensor=one_body_tensor, num_sites=one_body_tensor.shape[0]
+        )
+
+    if two_body_tensor is not None:
+        two_body_mpo = make_two_body_mpo(
+            two_body_tensor=two_body_tensor, num_sites=two_body_tensor.shape[0]
+        )
+
+    if one_body_tensor is not None and two_body_tensor is not None:
+        hamiltonian_mpo = add_mpos(mpo1=one_body_mpo, mpo2=two_body_mpo)
+    elif one_body_tensor is not None:
+        hamiltonian_mpo = one_body_mpo
+    else:
+        hamiltonian_mpo = two_body_mpo
+
+    if num_electrons is None:
+        return hamiltonian_mpo
+
+    id_min_part_num_sq_mpo = make_number_penalty_mpo(
+        penalty=number_penalty,
+        num_particles=num_electrons,
+        num_sites=num_sites,
+        num_physical_dims=num_physical_dims,
+    )
+
+    # Add the penalty term to the Hamiltonian
+    hamiltonian_mpo_with_penalty = add_mpos(
+        mpo1=hamiltonian_mpo, mpo2=id_min_part_num_sq_mpo
+    )
+
+    return hamiltonian_mpo_with_penalty
