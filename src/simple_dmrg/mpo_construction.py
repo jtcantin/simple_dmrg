@@ -409,7 +409,7 @@ def make_particle_number_mpo(num_sites: int) -> List[np.ndarray]:
 
 
 def make_one_body_mpo(one_body_tensor: np.ndarray, num_sites: int) -> List[np.ndarray]:
-    """Return the MPO for a one-body operator.
+    """Return the MPO for a generic spinless fermion one-body operator.
     The one-body tensor should be of the form
     <bra|operator|ket> where bra and ket are vectors of the form
     (n_0,n_1,...,n_N-1,n_N) where n_i runs over the physical dimensions of site i,
@@ -431,6 +431,58 @@ def make_one_body_mpo(one_body_tensor: np.ndarray, num_sites: int) -> List[np.nd
             else:
                 one_body_mpo = add_mpos(one_body_mpo, scalar_and_op)
     return one_body_mpo
+
+
+def make_two_body_mpo(two_body_tensor: np.ndarray, num_sites: int) -> List[np.ndarray]:
+    """Return the MPO for a generic spinless fermion two-body operator, aka spin-orbital basis.
+    The two-body tensor should be of the form g_pqrs where pqrs run over the site indices.
+    This is for the term H_two-body = ∑_pqrs g_pqrs c†_p c_q c†_r c_s .
+    """
+    assert two_body_tensor.shape == (num_sites, num_sites, num_sites, num_sites)
+    for psite in range(num_sites):
+        c_dagger_p = make_fermion_operator_mpo(
+            psite,
+            num_sites,
+            op_type="creation",
+        )
+
+        for qsite in range(num_sites):
+            c_q = make_fermion_operator_mpo(
+                qsite,
+                num_sites,
+                op_type="annihilation",
+            )
+            bare_op_pq = multiply_mpos(c_dagger_p, c_q)
+
+            for rsite in range(num_sites):
+                c_dagger_r = make_fermion_operator_mpo(
+                    rsite,
+                    num_sites,
+                    op_type="creation",
+                )
+                bare_op_pqr = multiply_mpos(bare_op_pq, c_dagger_r)
+
+                for ssite in range(num_sites):
+                    c_s = make_fermion_operator_mpo(
+                        ssite,
+                        num_sites,
+                        op_type="annihilation",
+                    )
+                    bare_op_pqrs = multiply_mpos(bare_op_pqr, c_s)
+
+                    # Put the two-body tensor element on the p site.
+                    scalar_and_op = mpo_mult_by_scalar(
+                        bare_op_pqrs,
+                        two_body_tensor[psite, qsite, rsite, ssite],
+                        deposit_site=psite,
+                    )
+
+                    if psite == 0 and qsite == 0 and rsite == 0 and ssite == 0:
+                        two_body_mpo = scalar_and_op
+                    else:
+                        two_body_mpo = add_mpos(two_body_mpo, scalar_and_op)
+
+    return two_body_mpo
 
 
 def make_identity_mpo(num_sites: int, num_physical_dims) -> List[np.ndarray]:
