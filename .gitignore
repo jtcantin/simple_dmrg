@@ -3,3 +3,4 @@ command_notes.txt
 src/dmrg_from_scratch.egg-info/*
 sandbox.ipynb
 src/dmrg_from_scratch/__pycache__/*
+*.pyc

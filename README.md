@@ -47,7 +47,7 @@ python -m pip install .
 [//]: # (## Note: simple_dmrg will likely be posted on PyPi in the future to make everything easier.)
 
 # Examples
-See the examples directory for a python notebook showing how to run the code.
+See the examples directory for a python notebook showing how to run the code. There is also an html version for easy viewing.
 
 # Contact Information
 
