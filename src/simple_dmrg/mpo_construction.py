@@ -611,3 +611,13 @@ def make_electronic_hamiltonian_simple_number_enforcement(
     )
 
     return hamiltonian_mpo_with_penalty
+
+
+def make_density_mpos(num_sites: int) -> List[List[np.ndarray]]:
+    """Return a list of on-site density MPOs.
+    Assume 2 physical dimensions per site."""
+    density_mpo_list = []
+    for isite in range(num_sites):
+        density_mpo = on_site_number_operator_mpo(site=isite, num_sites=num_sites)
+        density_mpo_list.append(density_mpo)
+    return density_mpo_list

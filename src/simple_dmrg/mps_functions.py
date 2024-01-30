@@ -3,6 +3,9 @@ from typing import List
 import numpy as np
 import scipy.sparse as spar
 
+import simple_dmrg.mpo_construction as make_mpo
+import simple_dmrg.mpo_operations as mpo_ops
+
 
 def statevector_to_mps(normalize: bool = True) -> List[np.ndarray]:
     pass
@@ -173,3 +176,28 @@ def mps_tensor_svd_left_normalized(tensor: np.ndarray) -> List[np.ndarray]:
     )
 
     return [u, s, vh]
+
+
+def calculate_on_site_densities(mps: List[np.ndarray]):
+    """Calculate the on-site densities of an MPS using an operator MPO"""
+    densities = np.zeros(shape=(len(mps),), dtype=np.complex_)
+    for isite in range(len(mps)):
+        density_mpo = make_mpo.on_site_number_operator_mpo(
+            site=isite, num_sites=len(mps)
+        )
+        density = mpo_ops.mpo_general_expectation(
+            mps_bra=mps, mpo=density_mpo, mps_ket=mps
+        )
+        densities[isite] = density
+
+    return densities
+
+
+# def make_density_mpos(num_sites: int) -> List[List[np.ndarray]]:
+#     """Return a list of on-site density MPOs.
+#     Assume 2 physical dimensions per site."""
+#     density_mpo_list = []
+#     for isite in range(num_sites):
+#         density_mpo = on_site_number_operator_mpo(site=isite, num_sites=num_sites)
+#         density_mpo_list.append(density_mpo)
+#     return density_mpo_list
