@@ -485,7 +485,7 @@ def make_two_body_mpo(two_body_tensor: np.ndarray, num_sites: int) -> List[np.nd
     return two_body_mpo
 
 
-def make_identity_mpo(num_sites: int, num_physical_dims) -> List[np.ndarray]:
+def make_identity_mpo(num_sites: int, num_physical_dims: int) -> List[np.ndarray]:
     """Return the MPO for the identity operator."""
     identity_tensor = np.expand_dims(np.eye(num_physical_dims), axis=0)
     identity_tensor = np.expand_dims(identity_tensor, axis=-1)
@@ -493,3 +493,49 @@ def make_identity_mpo(num_sites: int, num_physical_dims) -> List[np.ndarray]:
     for isite in range(num_sites):
         identity_mpo.append(identity_tensor)
     return identity_mpo
+
+
+def make_number_penalty_mpo(
+    penalty: float, num_particles: int, num_sites: int, num_physical_dims: int
+) -> List[np.ndarray]:
+    """Construct a penalty term to enforce the constraint that the number of particles is fixed
+    Penalty term is H_penalty = μ (N_e - ∑_i n_i)^2, where n_i is the number operator for site i,
+    N_e is num_particles, and μ > 0 is the penalty.
+
+    Make penalty large, such as 1000, to enforce the constraint.
+    """
+
+    # Add a number penalty term to the Hamiltonian
+    # ∑_i n_i
+    particle_number_mpo = make_particle_number_mpo(num_sites=num_sites)
+
+    # -∑_i n_i
+    negative_part_num_mpo = mpo_mult_by_scalar(
+        mpo=particle_number_mpo, scalar=-1, deposit_site=0
+    )
+    # Identity operator
+    identity_mpo = make_identity_mpo(
+        num_sites=num_sites, num_physical_dims=num_physical_dims
+    )
+
+    # N_e
+    const_identity_mpo = mpo_mult_by_scalar(
+        mpo=identity_mpo, scalar=num_particles, deposit_site=0
+    )
+
+    # N_e - ∑_i n_i
+    id_min_part_num_mpo = add_mpos(mpo1=const_identity_mpo, mpo2=negative_part_num_mpo)
+    id_min_part_num_mpo_copy = id_min_part_num_mpo.copy()
+
+    # (N_e - ∑_i n_i)^2
+    id_min_part_num_sq_mpo = multiply_mpos(
+        mpo1=id_min_part_num_mpo, mpo2=id_min_part_num_mpo_copy
+    )
+
+    # μ  (N_e - ∑_i n_i)^2
+    # Spread out the penalty term as it is likely to be large
+    id_min_part_num_sq_mpo = mpo_mult_by_scalar(
+        mpo=id_min_part_num_sq_mpo, scalar=penalty, deposit_site=None
+    )
+
+    return id_min_part_num_sq_mpo
