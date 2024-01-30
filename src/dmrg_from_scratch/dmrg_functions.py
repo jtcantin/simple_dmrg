@@ -572,8 +572,8 @@ def build_random_mpo(
 
     # Convert to MPO
 
-    raise NotImplementedError("This does not produce a Hermitian MPO.")
-
+    raise NotImplementedError("This does not yet produce a Hermitian MPO.")
+    """
     rng = np.random.default_rng(seed)
     mpo = []
     for i in range(num_sites):
@@ -628,6 +628,7 @@ def build_random_mpo(
     #     # Make Hermitian by adding conjugate transpose
     #     # Split indices
     return mpo
+    """
 
 
 def mpo_general_expectation(mps_bra, mpo, mps_ket):
