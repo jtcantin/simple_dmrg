@@ -7,13 +7,16 @@ import numpy.testing as npt
 import simple_dmrg.dmrg_functions as dmrg
 import simple_dmrg.mpo_construction as make_mpo
 import simple_dmrg.mpo_operations as mpo_ops
-import simple_dmrg.mps_functions as mps_mpo
 
-numpy_rtol = 1e-10
-numpy_atol = 1e-13
+# import simple_dmrg.mps_functions as mps_mpo
+
+NUMPY_RTOL = 1e-10
+NUMPY_ATOL = 1e-13
 
 
-class Test_dmrg(unittest.TestCase):
+class TestDMRG(unittest.TestCase):
+    """Tests for dmrg.py"""
+
     def test_integrated_diagonal_one_body_manual(self):
         """Ensure that DMRG gets the correct answer for a simple one-body
         Hamiltonian."""
@@ -83,7 +86,7 @@ class Test_dmrg(unittest.TestCase):
             mps_ket=optimized_mps,
         )
         npt.assert_allclose(
-            gs_energy, -3.0, rtol=numpy_rtol, atol=numpy_atol, equal_nan=False
+            gs_energy, -3.0, rtol=NUMPY_RTOL, atol=NUMPY_ATOL, equal_nan=False
         )
 
         # Calculate the particle number of the optimized state
@@ -99,8 +102,8 @@ class Test_dmrg(unittest.TestCase):
         npt.assert_allclose(
             gs_num_particles,
             num_particles,
-            rtol=numpy_rtol,
-            atol=numpy_atol,
+            rtol=NUMPY_RTOL,
+            atol=NUMPY_ATOL,
             equal_nan=False,
         )
 

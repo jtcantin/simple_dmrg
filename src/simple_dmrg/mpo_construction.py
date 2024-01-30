@@ -177,6 +177,7 @@ def sparse_matrix_to_mpo(
      and the vh matrix is absorbed into the remaining tensor.
     """
     raise NotImplementedError("sparse_matrix_to_mpo not working")
+    """
     # The first half of the dimensions are for the top indices (ket) and the second half are for the bottom indices (bra).
     high_rank_tensor = np.zeros([num_physical_dims] * num_sites * 2, dtype=complex)
     print(high_rank_tensor.shape)
@@ -383,6 +384,7 @@ def sparse_matrix_to_mpo(
             high_rank_tensor = vh
 
     return mpo
+    """
 
 
 def on_site_number_operator_mpo(site: int, num_sites: int) -> List[np.ndarray]:
