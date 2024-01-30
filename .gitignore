@@ -1,6 +1,7 @@
 dmrg_env/*
 command_notes.txt
-src/dmrg_from_scratch.egg-info/*
 sandbox.ipynb
-src/dmrg_from_scratch/__pycache__/*
+src/simple_dmrg/__pycache__/*
 *.pyc
+src/simple_dmrg.egg-info/*
+simple_dmrg_example_trials.ipynb
