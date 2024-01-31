@@ -1,7 +1,8 @@
 dmrg_env/*
 command_notes.txt
-sandbox.ipynb
+sandbox*.ipynb
 src/simple_dmrg/__pycache__/*
 *.pyc
 src/simple_dmrg.egg-info/*
 simple_dmrg_example_trials.ipynb
+*.xlsx

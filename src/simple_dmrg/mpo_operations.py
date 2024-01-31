@@ -188,29 +188,39 @@ def mpo_mult_by_scalar(
     return new_mpo
 
 
-def mpo_to_dense_matrix(mpo: List[np.ndarray]):
+def mpo_to_dense_matrix(mpo: List[np.ndarray], verbosity: int = 0):
     num_sites = len(mpo)
     # Contract the mpo tensors.
     for isite, tensor in enumerate(mpo):
-        # print("isite", isite)
-        # print("tensor.shape", tensor.shape)
+        if verbosity > 0:
+            print("isite", isite)
+            print("tensor.shape", tensor.shape)
 
         if isite == 0:
             final_tensor = tensor
         else:
             final_tensor = np.einsum("...a,abcd->...bcd", final_tensor, tensor)
-        # print("final_tensor.shape", final_tensor.shape)
-    # print("final_tensor.shape", final_tensor.shape)
+        if verbosity > 0:
+            print("final_tensor.shape", final_tensor.shape)
+
+    if verbosity > 0:
+        print("Final tensor formed.")
+        print("final_tensor.shape", final_tensor.shape)
+
     # Remove the dummy dimensions.
     final_tensor = np.squeeze(final_tensor)
-    # print("final_tensor.shape", final_tensor.shape)
+    if verbosity > 0:
+        print("Dummy dimensions removed.")
+        print("final_tensor.shape", final_tensor.shape)
 
     # Rearrange the indices from ket,bra,ket,bra,... to ket,ket,...,bra,bra,...
     final_tensor = np.transpose(
         final_tensor,
         list(range(0, num_sites * 2, 2)) + list(range(1, num_sites * 2, 2)),
     )
-    # print("final_tensor.shape", final_tensor.shape)
+    if verbosity > 0:
+        print("Indices rearranged.")
+        print("final_tensor.shape", final_tensor.shape)
 
     # Reshape the rank-2N tensor to a matrix.
     final_matrix = np.reshape(
@@ -220,6 +230,8 @@ def mpo_to_dense_matrix(mpo: List[np.ndarray]):
     )
     # Transpose the matrix to match the convention of the sparse matrix.
     final_matrix = np.transpose(final_matrix)
-    # print("final_tensor.shape", final_tensor.shape)
+    if verbosity > 0:
+        print("Matrix formed.")
+        print("final_matrix.shape", final_matrix.shape)
 
     return final_matrix
