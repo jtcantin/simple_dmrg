@@ -44,6 +44,7 @@ def drmg_main(
     # Transform MPS to right-canonical form
     ###############
     mps_ket = right_normalize_mps(mps_ket)
+    initial_mps = mps_ket.copy()
 
     if verbosity > 0:
         print("MPS transformed to right-canonical form.")
@@ -299,7 +300,11 @@ def drmg_main(
             f"WARNING: Not all eigenvalues of the effective matrix were real, with an absolute threshold of {eigenvalue_imaginary_threshold}. This may indicate a problem."
         )
 
-    return mps_ket
+    output_dict = {
+        "optimized_mps": mps_ket,
+        "initial_mps": initial_mps,
+    }
+    return output_dict
 
 
 def get_new_ket_tensor(
