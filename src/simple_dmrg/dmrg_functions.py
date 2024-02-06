@@ -21,6 +21,7 @@ def drmg_main(
     seed: int = 0,
     num_sweeps: int = 4,  # Here, one sweep is a forward and backward pass
     verbosity: int = 1,
+    specified_initial_mps: List[np.ndarray] = None,
 ) -> List[np.ndarray]:
     """Main function of the DMRG algorithm.
     Structure follows the pseudocode in Fig. 19 of DOI:  https://doi.org/10.1140/epjb/s10051-023-00575-2
@@ -30,24 +31,30 @@ def drmg_main(
     # Initialization
     ###############
 
-    # Build random MPS
-    ###############
-    mps_ket = build_random_mps(
-        num_sites=num_sites,
-        physical_dimension=physical_dimension,
-        bond_dimension=bond_dimension,
-        seed=seed,
-    )
-    if verbosity > 0:
-        print("Random MPS generated (non-normalized).")
+    if specified_initial_mps is None:
+        # Build random MPS
+        ###############
+        mps_ket = build_random_mps(
+            num_sites=num_sites,
+            physical_dimension=physical_dimension,
+            bond_dimension=bond_dimension,
+            seed=seed,
+        )
+        if verbosity > 0:
+            print("Random MPS generated (non-normalized).")
+
+    else:
+        mps_ket = specified_initial_mps
+        if verbosity > 0:
+            print("Using specified initial MPS.")
 
     # Transform MPS to right-canonical form
     ###############
     mps_ket = right_normalize_mps(mps_ket)
-    initial_mps = mps_ket.copy()
-
     if verbosity > 0:
         print("MPS transformed to right-canonical form.")
+
+    initial_mps = mps_ket.copy()
 
     # Set L[1] = R[1] = 1
     ###############

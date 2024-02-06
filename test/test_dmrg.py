@@ -65,7 +65,7 @@ class TestDMRG(unittest.TestCase):
         # Ensure that the Hamiltonian matrix is Hermitian
         self.assertTrue(np.allclose(hamiltonian_matrix, hamiltonian_matrix.conj().T))
 
-        optimized_mps = dmrg.drmg_main(
+        output_dict = dmrg.drmg_main(
             mpo=hamiltonian_mpo_with_penalty,
             num_sites=num_sites,
             physical_dimension=num_physical_dims,  # 2 for one possible Fermion per site (aka spin-orbital)
@@ -74,6 +74,8 @@ class TestDMRG(unittest.TestCase):
             num_sweeps=3,  # Number of DMRG sweeps. Each sweep includes a left-to-right and right-to-left sweep
             verbosity=0,  # 0: No output, 1: Basic output, 2: Detailed output for debugging
         )
+
+        optimized_mps = output_dict["optimized_mps"]
 
         # Calculate the energy of the optimized state
         # For 3 particles, the ground state energy is -3.0
@@ -182,7 +184,7 @@ class TestDMRG(unittest.TestCase):
         # Ensure that the Hamiltonian matrix is Hermitian
         self.assertTrue(np.allclose(hamiltonian_matrix, hamiltonian_matrix.conj().T))
 
-        optimized_mps = dmrg.drmg_main(
+        output_dict = dmrg.drmg_main(
             mpo=hamiltonian_mpo_with_penalty,
             num_sites=num_sites,
             physical_dimension=num_physical_dims,  # 2 for one possible Fermion per site (aka spin-orbital)
@@ -191,6 +193,8 @@ class TestDMRG(unittest.TestCase):
             num_sweeps=3,  # Number of DMRG sweeps. Each sweep includes a left-to-right and right-to-left sweep
             verbosity=0,  # 0: No output, 1: Basic output, 2: Detailed output for debugging
         )
+
+        optimized_mps = output_dict["optimized_mps"]
 
         # Calculate the energy of the optimized state
         # For 3 particles, the ground state energy is -3.0
