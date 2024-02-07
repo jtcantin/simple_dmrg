@@ -521,6 +521,10 @@ def make_number_penalty_mpo(
 
     Make penalty large, such as 1000, to enforce the constraint.
     """
+    if num_physical_dims != 2:
+        raise NotImplementedError(
+            "Only 2 physical dimensions per site is currently supported"
+        )
 
     # Add a number penalty term to the Hamiltonian
     # ∑_i n_i
@@ -565,6 +569,7 @@ def make_electronic_hamiltonian_simple_number_enforcement(
     two_body_tensor: np.ndarray = None,
     num_electrons: int = None,
     number_penalty: float = 1000,
+    verbosity: int = 0,
 ) -> List[np.ndarray]:
     """Construct the molecular electron Hamiltonian as an MPO.
     The Hamiltonian is H = H_one-body + H_two-body + H_penalty
@@ -579,16 +584,22 @@ def make_electronic_hamiltonian_simple_number_enforcement(
     assert one_body_tensor is not None or two_body_tensor is not None
 
     if one_body_tensor is not None:
+        if verbosity > 0:
+            print("Making one-body MPO")
         one_body_mpo = make_one_body_mpo(
             one_body_tensor=one_body_tensor, num_sites=one_body_tensor.shape[0]
         )
 
     if two_body_tensor is not None:
+        if verbosity > 0:
+            print("Making two-body MPO")
         two_body_mpo = make_two_body_mpo(
             two_body_tensor=two_body_tensor, num_sites=two_body_tensor.shape[0]
         )
 
     if one_body_tensor is not None and two_body_tensor is not None:
+        if verbosity > 0:
+            print("Adding one-body and two-body MPOs")
         hamiltonian_mpo = add_mpos(mpo1=one_body_mpo, mpo2=two_body_mpo)
     elif one_body_tensor is not None:
         hamiltonian_mpo = one_body_mpo
@@ -598,6 +609,8 @@ def make_electronic_hamiltonian_simple_number_enforcement(
     if num_electrons is None:
         return hamiltonian_mpo
 
+    if verbosity > 0:
+        print("Making number penalty MPO")
     id_min_part_num_sq_mpo = make_number_penalty_mpo(
         penalty=number_penalty,
         num_particles=num_electrons,
@@ -606,6 +619,8 @@ def make_electronic_hamiltonian_simple_number_enforcement(
     )
 
     # Add the penalty term to the Hamiltonian
+    if verbosity > 0:
+        print("Adding penalty term to the Hamiltonian")
     hamiltonian_mpo_with_penalty = add_mpos(
         mpo1=hamiltonian_mpo, mpo2=id_min_part_num_sq_mpo
     )

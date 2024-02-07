@@ -62,7 +62,9 @@ def add_mpos(mpo1: List[np.ndarray], mpo2: List[np.ndarray]) -> List[np.ndarray]
     """Add two MPOs. This follows IVB of https://link.aps.org/doi/10.1103/PhysRevB.95.035129"""
     mpo1_physical_dims = mpo1[0].shape[1]
     mpo2_physical_dims = mpo2[0].shape[1]
-    assert mpo1_physical_dims == mpo2_physical_dims, "Physical dimensions must match"
+    assert (
+        mpo1_physical_dims == mpo2_physical_dims
+    ), f"Physical dimensions must match: {mpo1_physical_dims} != {mpo2_physical_dims}"
 
     new_mpo = []
 
@@ -109,7 +111,9 @@ def multiply_mpos(mpo1: List[np.ndarray], mpo2: List[np.ndarray]) -> List[np.nda
     Order is mp1 * mpo2, so mpo2 is on the top and mpo1 is on the bottom."""
     mpo1_physical_dims = mpo1[0].shape[1]
     mpo2_physical_dims = mpo2[0].shape[1]
-    assert mpo1_physical_dims == mpo2_physical_dims, "Physical dimensions must match"
+    assert (
+        mpo1_physical_dims == mpo2_physical_dims
+    ), f"Physical dimensions must match: {mpo1_physical_dims} != {mpo2_physical_dims}"
 
     new_mpo = []
     for isite in range(len(mpo1)):

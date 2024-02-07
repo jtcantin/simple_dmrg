@@ -47,6 +47,11 @@ def statevector_to_mps(
         compute_uv=True,
         hermitian=False,
     )
+    test_vector = np.einsum("ab,b,bc->ac", u, s, vh)
+    assert np.allclose(
+        test_vector, state_vector_new
+    ), f"test_vector: {test_vector} state_vector_new: {state_vector_new} u.shape: {u.shape} s.shape: {s.shape} vh.shape: {vh.shape} test_vector.shape: {test_vector.shape} state_vector_new.shape: {state_vector_new.shape}"
+
     bond_dim = orig_bond_dim
     if verbosity > 0:
         print("bond_dim", bond_dim)
@@ -57,43 +62,47 @@ def statevector_to_mps(
 
     # If orig_bond_dim is specified, either truncate or pad the SVD matrices
     if orig_bond_dim is not None:
-        raise NotImplementedError
-        if s.shape[0] > bond_dim:
-            s = s[:bond_dim]
-            u = u[:, :bond_dim]
-            vh = vh[:bond_dim, :]
+        # raise NotImplementedError
+        if s.shape[0] > orig_bond_dim:
+            s = s[:orig_bond_dim]
+            u = u[:, :orig_bond_dim]
+            vh = vh[:orig_bond_dim, :]
+            bond_dim = orig_bond_dim
         else:
             u = np.pad(
                 u,
-                ((0, 0), (0, bond_dim - s.shape[0])),
+                ((0, 0), (0, orig_bond_dim - s.shape[0])),
                 mode="constant",
                 constant_values=0,
             )
             vh = np.pad(
                 vh,
-                ((bond_dim - s.shape[0], 0), (0, 0)),
+                ((0, orig_bond_dim - s.shape[0]), (0, 0)),
                 mode="constant",
                 constant_values=0,
             )
             s = np.pad(
-                s, (0, bond_dim - s.shape[0]), mode="constant", constant_values=0
+                s, (0, orig_bond_dim - s.shape[0]), mode="constant", constant_values=0
             )
             # Ensure shapes are correct
             assert u.shape == (
                 physical_dim ** (num_sites - 1),
-                bond_dim,
-            ), f"u.shape: {u.shape} expected({physical_dim**(num_sites-1)}, {bond_dim})"
-            assert s.shape == (bond_dim,), f"s.shape: {s.shape} bond_dim: {bond_dim}"
+                orig_bond_dim,
+            ), f"u.shape: {u.shape} expected({physical_dim**(num_sites-1)}, {orig_bond_dim})"
+            assert s.shape == (
+                orig_bond_dim,
+            ), f"s.shape: {s.shape} bond_dim: {orig_bond_dim}"
             assert vh.shape == (
-                bond_dim,
+                orig_bond_dim,
                 physical_dim,
-            ), f"vh.shape: {vh.shape} bond_dim: {bond_dim} physical_dim: {physical_dim}"
+            ), f"vh.shape: {vh.shape} orig_bond_dim: {orig_bond_dim} physical_dim: {physical_dim}"
 
             # Check that original state vector can be reconstructed
             test_vector = np.einsum("ab,b,bc->ac", u, s, vh)
             assert np.allclose(
                 test_vector, state_vector_new
-            ), f"test_vector: {test_vector} state_vector_new: {state_vector_new}"
+            ), f"test_vector: {test_vector} state_vector_new: {state_vector_new} u.shape: {u.shape} s.shape: {s.shape} vh.shape: {vh.shape} test_vector.shape: {test_vector.shape} state_vector_new.shape: {state_vector_new.shape}"
+            bond_dim = orig_bond_dim
     else:
         bond_dim = s.shape[0]
 
@@ -144,30 +153,35 @@ def statevector_to_mps(
             print("vh.shape", vh.shape)
 
         # If orig_bond_dim is specified, either truncate or pad the SVD matrices
-        if orig_bond_dim is not None:
-            if s.shape[0] > bond_dim:
-                s = s[:bond_dim]
-                u = u[:, :bond_dim]
-                vh = vh[:bond_dim, :]
+        if orig_bond_dim is not None and isite > 0:
+            if s.shape[0] > orig_bond_dim:
+                s = s[:orig_bond_dim]
+                u = u[:, :orig_bond_dim]
+                vh = vh[:orig_bond_dim, :]
+                bond_dim = orig_bond_dim
             else:
                 u = np.pad(
                     u,
-                    ((0, 0), (0, bond_dim - s.shape[0])),
+                    ((0, 0), (0, orig_bond_dim - s.shape[0])),
                     mode="constant",
                     constant_values=0,
                 )
                 vh = np.pad(
                     vh,
-                    ((bond_dim - s.shape[0], 0), (0, 0)),
+                    ((0, orig_bond_dim - s.shape[0]), (0, 0)),
                     mode="constant",
                     constant_values=0,
                 )
                 s = np.pad(
-                    s, (0, bond_dim - s.shape[0]), mode="constant", constant_values=0
+                    s,
+                    (0, orig_bond_dim - s.shape[0]),
+                    mode="constant",
+                    constant_values=0,
                 )
                 # Check that original state vector can be reconstructed
                 test_vector = np.einsum("ab,b,bc->ac", u, s, vh)
                 assert np.allclose(test_vector, state_vector_new)
+                bond_dim = orig_bond_dim
         else:
             bond_dim = s.shape[0]
 
@@ -198,8 +212,8 @@ def statevector_to_mps(
         else:
             assert np.allclose(
                 np.abs(u), 1
-            ), "u is not a complex number of absolute value 1"
-            assert s.shape[0] == 1, "s is not a scalar"
+            ), f"u is not a complex number of absolute value 1,u: {u}"
+            assert s.shape[0] == 1, f"s is not a scalar, s: {s}"
             assert np.allclose(
                 s[0], np.linalg.norm(state_vector)
             ), "s is not the norm of the state vector"
