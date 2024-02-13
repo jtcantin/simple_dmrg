@@ -430,6 +430,10 @@ def make_one_body_mpo(
             # Put the one-body tensor element on the creation site.
             value = one_body_tensor[isite, jsite]
             if np.abs(value) < element_threshold:
+                if isite == 0 and jsite == 0:
+                    raise NotImplementedError(
+                        "Element [0,0] currently cannot be less than the element_threshold"
+                    )
                 continue
 
             scalar_and_op = mpo_mult_by_scalar(

@@ -43,16 +43,20 @@ def drmg_main(
         if verbosity > 0:
             print("Random MPS generated (non-normalized).")
 
+        # Transform MPS to right-canonical form
+        ###############
+        mps_ket = right_normalize_mps(mps_ket)
+        if verbosity > 0:
+            print("MPS transformed to right-canonical form.")
+
     else:
         mps_ket = specified_initial_mps
         if verbosity > 0:
             print("Using specified initial MPS.")
-
-    # Transform MPS to right-canonical form
-    ###############
-    mps_ket = right_normalize_mps(mps_ket)
-    if verbosity > 0:
-        print("MPS transformed to right-canonical form.")
+            print(
+                "MPS is not modified before use (i.e. no normalization performed, etc.)."
+            )
+            print("Ensure MPS is in right-canonical form")
 
     initial_mps = mps_ket.copy()
 
@@ -60,59 +64,24 @@ def drmg_main(
     ###############
     if verbosity > 0:
         print("Calculating initial L and R tensors...")
-    L_tensor_list = [np.eye(1)]
-    L_tensor_list[0] = np.expand_dims(L_tensor_list[0], axis=-1)
-    R_tensor_list = [np.eye(1)]
-    R_tensor_list[-1] = np.expand_dims(R_tensor_list[-1], axis=-1)
+    L_tensor_list, R_tensor_list = make_proto_L_R_tensors()
 
-    # print("L[0] shape: ", L_tensor_list[0].shape)
-    # print("R[-1] shape: ", R_tensor_list[-1].shape)
-    # print("L[0]", L_tensor_list[0])
-    # print("R[-1]", R_tensor_list[-1])
+    if verbosity > 1:
+        print("L[0] shape: ", L_tensor_list[0].shape)
+        print("R[-1] shape: ", R_tensor_list[-1].shape)
+        print("L[0]", L_tensor_list[0])
+        print("R[-1]", R_tensor_list[-1])
 
     # Calculate remaining R tensors using extended zipper method
     # See Appendix B and 4.4 of https://doi.org/10.1140/epjb/s10051-023-00575-2
     ###############
-    for iiter in range(num_sites - 2, -1, -1):
-        ket_tensor = mps_ket[iiter + 1]
-        mpo_tensor = mpo[iiter + 1]
-        bra_tensor = np.conj(mps_ket[iiter + 1])
-        R_tensor = R_tensor_list[0].copy()
-
-        if verbosity > 1:
-            print("Site ", iiter)
-            print("ket tensor shape: ", ket_tensor.shape)
-            print("bra tensor shape: ", bra_tensor.shape)
-            print("mpo tensor shape: ", mpo_tensor.shape)
-            print("R tensor shape: ", R_tensor.shape)
-
-        # Contract ket tensor with R tensor
-        # R_tensor: c (top) e (left) h (bottom)
-        # ket_tensor: a (left) b (bottom) c (right)
-        # R_ket_tensor: a (left) b (bottom left) e (bottom right) h (right)
-        R_ket_tensor = np.einsum("ceh,abc->abeh", R_tensor, ket_tensor)
-        if verbosity > 1:
-            print("R_ket_tensor shape: ", R_ket_tensor.shape)
-
-        # Contract with mpo tensor
-        # mpo_tensor: d (left) b (top) f (bottom) e (right)
-        # R_ket_tensor: a (left) b (bottom left) e (bottom right) h (right)
-        # R_ket_o_tensor: a (top) d (left) f (bottom left) h (bottom right)
-        R_ket_o_tensor = np.einsum("abeh,dbfe->adfh", R_ket_tensor, mpo_tensor)
-        if verbosity > 1:
-            print("R_ket_o_tensor shape: ", R_ket_o_tensor.shape)
-
-        # Contract with bra tensor
-        # R_ket_o_tensor: a (top) d (left) f (bottom left) h (bottom right)
-        # bra_tensor: g (left) f (top) h (right)
-        # R_tensor: a (top) d (left) g (bottom)
-        R_tensor = np.einsum("adfh,gfh->adg", R_ket_o_tensor, bra_tensor)
-
-        if verbosity > 1:
-            print("New R tensor shape: ", R_tensor.shape)
-
-        # Prepend to R_tensor_list
-        R_tensor_list = [R_tensor] + R_tensor_list
+    R_tensor_list = make_remaining_initial_R_tensors(
+        mpo=mpo,
+        num_sites=num_sites,
+        mps_ket=mps_ket,
+        R_tensor_list=R_tensor_list,
+        verbosity=verbosity,
+    )
 
     # print("R_tensor_list length: ", len(R_tensor_list))
     if verbosity > 0:
@@ -312,6 +281,71 @@ def drmg_main(
         "initial_mps": initial_mps,
     }
     return output_dict
+
+
+def make_remaining_initial_R_tensors(
+    mpo: List[np.ndarray],
+    num_sites: int,
+    mps_ket: List[np.ndarray],
+    R_tensor_list: List[np.ndarray],
+    verbosity: int = 0,
+):
+    """Calculate remaining R tensors using extended zipper method
+    See Appendix B and 4.4 of https://doi.org/10.1140/epjb/s10051-023-00575-2
+    """
+    for iiter in range(num_sites - 2, -1, -1):
+        ket_tensor = mps_ket[iiter + 1]
+        mpo_tensor = mpo[iiter + 1]
+        bra_tensor = np.conj(mps_ket[iiter + 1])
+        R_tensor = R_tensor_list[0].copy()
+
+        if verbosity > 1:
+            print("Site ", iiter)
+            print("ket tensor shape: ", ket_tensor.shape)
+            print("bra tensor shape: ", bra_tensor.shape)
+            print("mpo tensor shape: ", mpo_tensor.shape)
+            print("R tensor shape: ", R_tensor.shape)
+
+        # Contract ket tensor with R tensor
+        # R_tensor: c (top) e (left) h (bottom)
+        # ket_tensor: a (left) b (bottom) c (right)
+        # R_ket_tensor: a (left) b (bottom left) e (bottom right) h (right)
+        R_ket_tensor = np.einsum("ceh,abc->abeh", R_tensor, ket_tensor)
+        if verbosity > 1:
+            print("R_ket_tensor shape: ", R_ket_tensor.shape)
+
+        # Contract with mpo tensor
+        # mpo_tensor: d (left) b (top) f (bottom) e (right)
+        # R_ket_tensor: a (left) b (bottom left) e (bottom right) h (right)
+        # R_ket_o_tensor: a (top) d (left) f (bottom left) h (bottom right)
+        R_ket_o_tensor = np.einsum("abeh,dbfe->adfh", R_ket_tensor, mpo_tensor)
+        if verbosity > 1:
+            print("R_ket_o_tensor shape: ", R_ket_o_tensor.shape)
+
+        # Contract with bra tensor
+        # R_ket_o_tensor: a (top) d (left) f (bottom left) h (bottom right)
+        # bra_tensor: g (left) f (top) h (right)
+        # R_tensor: a (top) d (left) g (bottom)
+        R_tensor = np.einsum("adfh,gfh->adg", R_ket_o_tensor, bra_tensor)
+
+        if verbosity > 1:
+            print("New R tensor shape: ", R_tensor.shape)
+
+        # Prepend to R_tensor_list
+        R_tensor_list = [R_tensor] + R_tensor_list
+    return R_tensor_list
+
+
+def make_proto_L_R_tensors():
+    """Calculate first L and R tensors. These are essentially dummy tensors
+    with the correct shape that are the "caps" at the end of the chain.
+    See Appendix B of https://doi.org/10.1140/epjb/s10051-023-00575-2
+    """
+    L_tensor_list = [np.eye(1)]
+    L_tensor_list[0] = np.expand_dims(L_tensor_list[0], axis=-1)
+    R_tensor_list = [np.eye(1)]
+    R_tensor_list[-1] = np.expand_dims(R_tensor_list[-1], axis=-1)
+    return L_tensor_list, R_tensor_list
 
 
 def get_new_ket_tensor(
