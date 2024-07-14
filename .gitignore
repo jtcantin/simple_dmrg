@@ -8,3 +8,4 @@ simple_dmrg_example_trials.ipynb
 *.xlsx
 step_by_step.ipynb
 single_block_case_conclusion_notes.txt
+build/*

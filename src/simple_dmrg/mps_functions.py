@@ -14,6 +14,7 @@ def statevector_to_mps(
     right_normalize: bool = True,
     orig_bond_dim: int = None,
     verbosity: int = 0,
+    threshold: float = 1e-10,
 ) -> List[np.ndarray]:
     """Converts a state vector to an MPS.
     Assumes state vector index is (n_0,n_1,...,n_N-1,n_N) where n_i runs over the physical dimensions of site i,
@@ -47,6 +48,18 @@ def statevector_to_mps(
         compute_uv=True,
         hermitian=False,
     )
+    # print(s)
+    # Set values of magnitude less than threshold to zero
+    s[np.abs(s) < threshold] = 0
+    u[np.abs(u) < threshold] = 0
+    vh[np.abs(vh) < threshold] = 0
+    # Trim u, s, vh to remove values corresponding to zero singular values
+    s = s[s > 0]
+    u = u[:, : s.shape[0]]
+    vh = vh[: s.shape[0], :]
+
+    # print(s)
+
     test_vector = np.einsum("ab,b,bc->ac", u, s, vh)
     assert np.allclose(
         test_vector, state_vector_new
@@ -145,6 +158,15 @@ def statevector_to_mps(
             compute_uv=True,
             hermitian=False,
         )
+        # Set values of magnitude less than threshold to zero
+        s[np.abs(s) < threshold] = 0
+        u[np.abs(u) < threshold] = 0
+        vh[np.abs(vh) < threshold] = 0
+        # Trim u, s, vh to remove values corresponding to zero singular values
+        s = s[s > 0]
+        u = u[:, : s.shape[0]]
+        vh = vh[: s.shape[0], :]
+
         bond_dim = vh.shape[0]
         if verbosity > 0:
             print("bond_dim", bond_dim)
@@ -381,7 +403,9 @@ def build_random_mps(
     return mps
 
 
-def mps_tensor_svd_right_normalized(tensor: np.ndarray) -> List[np.ndarray]:
+def mps_tensor_svd_right_normalized(
+    tensor: np.ndarray, threshold=1e-10
+) -> List[np.ndarray]:
     """Transforms an MPS tensor to right-canonical form
     Follows Fig 11b of https://doi.org/10.1140/epjb/s10051-023-00575-2
     mps indices are abg"""
@@ -397,6 +421,14 @@ def mps_tensor_svd_right_normalized(tensor: np.ndarray) -> List[np.ndarray]:
         compute_uv=True,
         hermitian=False,
     )
+    # Set values of magnitude less than threshold to zero
+    s[np.abs(s) < threshold] = 0
+    u[np.abs(u) < threshold] = 0
+    vh[np.abs(vh) < threshold] = 0
+    # Trim u, s, vh to remove values corresponding to zero singular values
+    s = s[s > 0]
+    u = u[:, : s.shape[0]]
+    vh = vh[: s.shape[0], :]
 
     # Split bg
     vh = np.reshape(
@@ -458,7 +490,9 @@ def mps_inner_product(
     return contraction_matrix[0, 0]
 
 
-def mps_tensor_svd_left_normalized(tensor: np.ndarray) -> List[np.ndarray]:
+def mps_tensor_svd_left_normalized(
+    tensor: np.ndarray, threshold=1e-10
+) -> List[np.ndarray]:
     """Transforms an MPS tensor to left-canonical form
     Follows Fig 11b of https://doi.org/10.1140/epjb/s10051-023-00575-2
     mps indices are abg"""
@@ -476,6 +510,14 @@ def mps_tensor_svd_left_normalized(tensor: np.ndarray) -> List[np.ndarray]:
         compute_uv=True,
         hermitian=False,
     )
+    # Set values of magnitude less than threshold to zero
+    s[np.abs(s) < threshold] = 0
+    u[np.abs(u) < threshold] = 0
+    vh[np.abs(vh) < threshold] = 0
+    # Trim u, s, vh to remove values corresponding to zero singular values
+    s = s[s > 0]
+    u = u[:, : s.shape[0]]
+    vh = vh[: s.shape[0], :]
 
     # Split ab
     u = np.reshape(
